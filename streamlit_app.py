@@ -6,28 +6,20 @@ import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 # --- Configuration ---
-# For local development, you can set the GOOGLE_API_KEY directly
-# For deployment (e.g., Streamlit Cloud), use st.secrets
-# Create a secrets.toml file in your project's .streamlit folder:
-# GOOGLE_API_KEY = "YOUR_API_KEY_HERE"
-
-try:
-    # Attempt to get the API key from Streamlit secrets
-    GOOGLE_API_KEY = st.secrets.get("GOOGLE_API_KEY")
-except (FileNotFoundError, AttributeError): # Fallback for local dev if secrets.toml doesn't exist or st.secrets is not available
-    # Replace with your actual API key for local testing if not using secrets
-    GOOGLE_API_KEY = "AIzaSyAi-EZdS0Jners99DuB_5DkROiK16ghPnM" # IMPORTANT: Replace with your key or ensure it's in secrets.toml
+# WARNING: HARDCODING API KEYS IS A SECURITY RISK!
+# Replace "YOUR_ACTUAL_API_KEY_HERE" with your real Google API Key.
+# Do NOT commit this file to a public GitHub repository with your real key.
+GOOGLE_API_KEY = "AIzaSyAi-EZdS0Jners99DuB_5DkROiK16ghPnM" # <--- PASTE YOUR ACTUAL API KEY HERE
 
 if not GOOGLE_API_KEY or GOOGLE_API_KEY == "AIzaSyAi-EZdS0Jners99DuB_5DkROiK16ghPnM": # Check if placeholder is still there
-    st.error("⚠️ Configure sua chave API do Gemini em `secrets.toml` ou substitua o placeholder no código.")
-    st.info("Crie um arquivo `.streamlit/secrets.toml` com o conteúdo: \n\n`GOOGLE_API_KEY = \"AIzaSy...\"`")
+    st.error("⚠️ ATENÇÃO: A CHAVE API DO GEMINI NÃO FOI DEFINIDA CORRETAMENTE NO CÓDIGO!")
+    st.error("Por favor, substitua 'YOUR_ACTUAL_API_KEY_HERE' pela sua chave API real na variável GOOGLE_API_KEY no código-fonte.")
+    st.warning("Lembre-se: Não compartilhe este código com sua chave API real em repositórios públicos.")
     st.stop()
 
 try:
     genai.configure(api_key=GOOGLE_API_KEY)
     # Configuration for safety settings - adjust as needed
-    # This example sets a low threshold for blocking, meaning it's more sensitive.
-    # You might want to relax these for legal texts if they get falsely flagged.
     safety_settings = {
         HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
         HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
@@ -37,7 +29,7 @@ try:
     model = genai.GenerativeModel(
         model_name='gemini-1.5-flash-latest', # or 'gemini-pro'
         safety_settings=safety_settings
-        )
+    )
 except Exception as e:
     st.error(f"❌ Falha ao configurar a API do Gemini: {str(e)}")
     st.stop()
@@ -55,8 +47,6 @@ def extrair_texto_pdf(caminho_pdf):
                 texto_pagina = pagina.extract_text()
                 if texto_pagina:
                     texto += texto_pagina
-                # else:
-                #     st.caption(f"Nenhum texto extraído da página {pagina_num + 1}.") # Optional: for debugging
         return texto.strip()
     except PyPDF2.errors.PdfReadError:
         st.error("Erro ao ler o PDF. O arquivo pode estar corrompido ou protegido por senha.")
@@ -68,28 +58,17 @@ def extrair_texto_pdf(caminho_pdf):
 def call_gemini_api(prompt_text, task_name="tarefa"):
     """Generic function to call Gemini API and handle response."""
     try:
-        # Using stream=False for simplicity here, so response.text is directly available
         response = model.generate_content(prompt_text)
 
-        # Check if the response was blocked due to safety settings or other reasons
         if not response.candidates:
-             # This can happen if all candidates were filtered.
-             # Check prompt_feedback for block reason.
             if response.prompt_feedback and response.prompt_feedback.block_reason:
                 block_reason_message = response.prompt_feedback.block_reason.name
                 st.error(f"⚠️ A {task_name} foi bloqueada pela API. Razão: {block_reason_message}")
-                # You can inspect response.prompt_feedback.safety_ratings for more details
-                # for rating in response.prompt_feedback.safety_ratings:
-                # st.caption(f"  - Categoria: {rating.category}, Probabilidade: {rating.probability.name}")
                 return f"Conteúdo bloqueado: {block_reason_message}"
             else:
                 st.error(f"⚠️ A {task_name} não retornou conteúdo. Resposta da API: {response}")
                 return "Nenhum conteúdo gerado."
-
-        # Accessing the text from the first candidate
-        # .text should aggregate text parts if any
         return response.text
-
     except Exception as e:
         st.error(f"❌ Erro durante a {task_name} com a API Gemini: {str(e)}")
         return f"Erro na API: {str(e)}"
@@ -126,7 +105,7 @@ def analisar_legibilidade_gemini(texto):
     ---
     {texto[:18000]}
     ---
-    """ # Increased limit slightly, ensure it's within model's context window
+    """
     return call_gemini_api(prompt, task_name="Análise de Legibilidade")
 
 def gerar_resumo_gemini(texto):
@@ -151,25 +130,24 @@ def gerar_resumo_gemini(texto):
     return call_gemini_api(prompt, task_name="Geração de Resumo")
 
 # --- Streamlit Interface ---
-st.set_page_config(page_title="LexFácil", layout="wide", initial_sidebar_state="collapsed") # Changed to wide
-st.image("https://lexfacil.com.br/wp-content/uploads/2023/09/logo-lexfacil-azul-claro.png", width=200) # Example logo
-# st.title("📘 LexFácil - Leis para Todos")
+st.set_page_config(page_title="LexFácil", layout="wide", initial_sidebar_state="collapsed")
+# st.image("https://lexfacil.com.br/wp-content/uploads/2023/09/logo-lexfacil-azul-claro.png", width=200) # Your logo
+st.title("📘 LexFácil - Leis para Todos")
 st.subheader("Textos normativos com linguagem acessível, por IA")
 
 uploaded_file = st.file_uploader("Envie o PDF da lei, portaria, ou outro texto normativo", type=["pdf"])
 
 if uploaded_file:
-    # Use a temporary file to save the uploaded PDF
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
         tmp_file.write(uploaded_file.getvalue())
         tmp_file_path = tmp_file.name
 
-    texto_extraido = "" # Initialize
+    texto_extraido = ""
     try:
         with st.spinner("Extraindo texto do PDF..."):
             texto_extraido = extrair_texto_pdf(tmp_file_path)
     finally:
-        os.unlink(tmp_file_path) # Ensure temporary file is deleted
+        os.unlink(tmp_file_path)
 
     if not texto_extraido:
         st.warning("⚠️ Não foi possível extrair texto do PDF. O arquivo pode conter apenas imagens, estar protegido ou ser incompatível.")
