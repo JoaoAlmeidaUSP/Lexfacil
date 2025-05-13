@@ -63,8 +63,8 @@ def gerar_resumo_gemini(texto):
 
 # Interface
 st.set_page_config(page_title="LexFácil", layout="centered")
-st.title("📘 Leis para Todos (Gemini)")
-st.subheader("Análise e resumo com IA")
+st.title("📘 LexFácil - Leis para Todos")
+st.subheader("Textos normativos com linguagem acessível")
 
 uploaded_file = st.file_uploader("Envie o PDF da lei", type=["pdf"])
 
@@ -86,13 +86,13 @@ if uploaded_file:
 
     with tab2:
         st.subheader("Análise de Legibilidade")
-        if st.button("Analisar com Gemini"):
+        if st.button("Analisar com IA"):
             analise = analisar_legibilidade_gemini(texto)
             st.markdown(analise)
 
     with tab3:
         st.subheader("Resumo Automático")
-        if st.button("Gerar Resumo com Gemini"):
+        if st.button("Gerar Resumo com IA"):
             resumo = gerar_resumo_gemini(texto)
             st.markdown(resumo)
 
