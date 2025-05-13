@@ -65,7 +65,7 @@ def extrair_texto_pdf(caminho_pdf):
 # Interface Streamlit
 st.set_page_config(page_title="LexFácil", layout="centered", initial_sidebar_state="expanded")
 
-st.title("📘 Leis para Todos")
+st.title("📘 LexFácil")
 st.subheader("Torne textos legislativos mais fáceis de entender")
 
 # Upload do arquivo
@@ -115,4 +115,4 @@ else:
 
 # Rodapé
 st.markdown("---")
-st.markdown("Desenvolvido com ❤️ para tornar as leis mais acessíveis")
+st.markdown("Desenvolvido para tornar as leis mais acessíveis")
