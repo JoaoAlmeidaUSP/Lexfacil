@@ -1,118 +1,100 @@
 import streamlit as st
 import tempfile
 import os
-import re
-import nltk
-from nltk.tokenize import sent_tokenize
 import PyPDF2
-import warnings
 import google.generativeai as genai
-import json
 
-# Silenciar avisos para não assustar o usuário
-warnings.filterwarnings("ignore")
+# Configuração da API do Gemini
+GOOGLE_API_KEY = "AIzaSyA07VjFHe932cYVO_qTHBf6-42apNDjtok"
 
-# Certifique-se de baixar os recursos do NLTK necessários
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
-    nltk.download('punkt', quiet=True)
-
-# Configuração da API do Gemini (substitua pela sua chave)
-GOOGLE_API_KEY = "AIzaSyA07VjFHe932cYVO_qTHBf6-42apNDjtok"  # ← Insira sua chave API aqui
-
-# Verifica se a chave foi configurada (ALTERAÇÃO FEITA AQUI)
 if not GOOGLE_API_KEY:
-    st.error("⚠️ A chave da API do Google Gemini não foi configurada. Por favor, configure a variável GOOGLE_API_KEY no código.")
+    st.error("⚠️ Configure sua chave API do Gemini")
     st.stop()
 
-# Inicializa o modelo Gemini
 try:
     genai.configure(api_key=GOOGLE_API_KEY)
     model = genai.GenerativeModel('gemini-pro')
 except Exception as e:
-    st.error(f"❌ Falha ao conectar com a API do Gemini: {str(e)}")
+    st.error(f"❌ Falha na API: {str(e)}")
     st.stop()
 
-# Restante do código permanece igual...
-# Função para extrair texto de PDF com tratamento de erros melhorado
+# Função para extrair texto do PDF
 def extrair_texto_pdf(caminho_pdf):
-    texto_completo = ""
+    texto = ""
     try:
         with open(caminho_pdf, 'rb') as arquivo:
             leitor = PyPDF2.PdfReader(arquivo)
-            num_paginas = len(leitor.pages)
-            
-            if num_paginas == 0:
-                st.warning("O PDF não contém páginas ou está protegido.")
-                return ""
-            
-            with st.spinner(f"Extraindo texto de {num_paginas} páginas..."):
-                for pagina in leitor.pages:
-                    texto_pagina = pagina.extract_text()
-                    if texto_pagina:  # Verifica se há texto extraído
-                        texto_completo += texto_pagina + "\n"
-                    
-            return texto_completo if texto_completo.strip() else ""
-        
-    except PyPDF2.PdfReadError:
-        st.error("Não foi possível ler o PDF. O arquivo pode estar corrompido ou protegido.")
-        return ""
+            for pagina in leitor.pages:
+                texto += pagina.extract_text() or ""
+        return texto if texto.strip() else ""
     except Exception as e:
-        st.error(f"Erro inesperado ao extrair texto: {str(e)}")
+        st.error(f"Erro no PDF: {str(e)}")
         return ""
 
-# Interface Streamlit
-st.set_page_config(page_title="LexFácil", layout="centered", initial_sidebar_state="expanded")
+# Funções que usam apenas o Gemini
+def analisar_legibilidade_gemini(texto):
+    prompt = f"""
+    Analise a legibilidade deste texto jurídico (em português) considerando:
+    1. Complexidade linguística (escala de 1-10)
+    2. Densidade conceitual
+    3. Uso de termos técnicos
+    4. Estrutura das frases
+    5. Recomendações para simplificação
 
-st.title("📘 LexFácil")
-st.subheader("Torne textos legislativos mais fáceis de entender")
+    Retorne em formato MARKDOWN com títulos e bullet points.
 
-# Upload do arquivo
-uploaded_file = st.file_uploader("Envie o PDF da lei ou edital", type=["pdf"], accept_multiple_files=False)
+    Texto: {texto[:15000]}  # Limita o tamanho
+    """
+    response = model.generate_content(prompt)
+    return response.text
 
-if uploaded_file is not None:
-    try:
-        # Cria arquivo temporário
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            tmp.write(uploaded_file.getvalue())
-            tmp_path = tmp.name
-        
-        # Extrai o texto
-        texto = extrair_texto_pdf(tmp_path)
-        
-        # Remove o arquivo temporário
-        try:
-            os.unlink(tmp_path)
-        except:
-            pass
-        
-        if not texto:
-            st.warning("Não foi possível extrair texto do PDF. O arquivo pode ser uma imagem ou estar protegido.")
-            st.stop()
-            
-        # Mostra as abas somente se a extração foi bem sucedida
-        tab1, tab2, tab3 = st.tabs(["📝 Texto", "📊 Legibilidade", "✂️ Resumo"])
-        
-        with tab1:
-            st.subheader("Texto Extraído")
-            st.text_area("Texto", value=texto[:10000] + ("..." if len(texto) > 10000 else ""), height=300)
-            st.download_button("Baixar Texto Completo", data=texto, file_name="texto_extraido.txt")
-            
-        with tab2:
-            st.subheader("Análise de Legibilidade")
-            # Adicione aqui sua função de análise de legibilidade
-            
-        with tab3:
-            st.subheader("Resumo Automático")
-            # Adicione aqui sua função de resumo
-            
-    except Exception as e:
-        st.error(f"Erro ao processar o arquivo: {str(e)}")
+def gerar_resumo_gemini(texto):
+    prompt = f"""
+    Gere um resumo conciso em português deste texto jurídico, mantendo:
+    - Os pontos principais
+    - Artigos e parágrafos relevantes
+    - Efeitos práticos
+    Use linguagem acessível e formato MARKDOWN.
+
+    Texto: {texto[:15000]}
+    """
+    response = model.generate_content(prompt)
+    return response.text
+
+# Interface
+st.set_page_config(page_title="LexFácil", layout="centered")
+st.title("📘 Leis para Todos (Gemini)")
+st.subheader("Análise e resumo com IA")
+
+uploaded_file = st.file_uploader("Envie o PDF da lei", type=["pdf"])
+
+if uploaded_file:
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp.write(uploaded_file.getvalue())
+        texto = extrair_texto_pdf(tmp.name)
+        os.unlink(tmp.name)
+
+    if not texto:
+        st.warning("PDF sem texto extraível")
         st.stop()
-else:
-    st.info("👆 Por favor, faça upload de um arquivo PDF para começar.")
 
-# Rodapé
+    tab1, tab2, tab3 = st.tabs(["📝 Texto", "📊 Legibilidade IA", "✂️ Resumo IA"])
+    
+    with tab1:
+        st.subheader("Texto Extraído")
+        st.text_area("", value=texto[:10000] + ("..." if len(texto) > 10000 else ""), height=300)
+
+    with tab2:
+        st.subheader("Análise de Legibilidade")
+        if st.button("Analisar com Gemini"):
+            analise = analisar_legibilidade_gemini(texto)
+            st.markdown(analise)
+
+    with tab3:
+        st.subheader("Resumo Automático")
+        if st.button("Gerar Resumo com Gemini"):
+            resumo = gerar_resumo_gemini(texto)
+            st.markdown(resumo)
+
 st.markdown("---")
-st.markdown("Desenvolvido para tornar as leis mais acessíveis")
+st.caption("Desenvolvido com Gemini AI")
