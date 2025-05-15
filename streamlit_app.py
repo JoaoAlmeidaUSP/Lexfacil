@@ -5,13 +5,10 @@ import PyPDF2
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
-# --- Configuration ---
-# WARNING: HARDCODING API KEYS IS A SECURITY RISK!
-# Replace "YOUR_ACTUAL_API_KEY_HERE" with your real Google API Key.
-# Do NOT commit this file to a public GitHub repository with your real key.
-GOOGLE_API_KEY = "AIzaSyAi-EZdS0Jners99DuB_5DkROiK16ghPnM" # <--- PASTE YOUR ACTUAL API KEY HERE
 
-if not GOOGLE_API_KEY or GOOGLE_API_KEY == "YOUR_ACTUAL_API_KEY_HERE": # Check if placeholder is still there
+GOOGLE_API_KEY = "AIzaSyAi-EZdS0Jners99DuB_5DkROiK16ghPnM" 
+
+if not GOOGLE_API_KEY or GOOGLE_API_KEY == "YOUR_ACTUAL_API_KEY_HERE": 
     st.error("⚠️ ATENÇÃO: A CHAVE API DO GEMINI NÃO FOI DEFINIDA CORRETAMENTE NO CÓDIGO!")
     st.error("Por favor, substitua 'YOUR_ACTUAL_API_KEY_HERE' pela sua chave API real na variável GOOGLE_API_KEY no código-fonte.")
     st.warning("Lembre-se: Não compartilhe este código com sua chave API real em repositórios públicos.")
