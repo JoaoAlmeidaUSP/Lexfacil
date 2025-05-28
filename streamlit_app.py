@@ -45,6 +45,12 @@ if 'resumo_realizado' not in st.session_state:
     st.session_state.resumo_realizado = False
 if 'contexto_conversa' not in st.session_state:
     st.session_state.contexto_conversa = ""
+if 'persona_usuario' not in st.session_state:
+    st.session_state.persona_usuario = "👨‍👩‍👧‍👦 Cidadão"
+if 'casos_praticos' not in st.session_state:
+    st.session_state.casos_praticos = []
+if 'prazos_extraidos' not in st.session_state:
+    st.session_state.prazos_extraidos = []
 
 # --- Helper Functions ---
 def extrair_texto_pdf(caminho_pdf):
@@ -80,25 +86,37 @@ def call_gemini_api(prompt_text, task_name="tarefa"):
 def criar_contexto_inicial():
     """Cria o contexto inicial para o agente conversacional"""
     if st.session_state.texto_lei:
+        personas = {
+            "👨‍👩‍👧‍👦 Cidadão": "Use linguagem ultra-simples, foque no impacto pessoal e familiar, dê exemplos do cotidiano",
+            "👨‍💼 Empresário": "Foque em impactos comerciais, custos, prazos de adequação, riscos para negócios",
+            "👩‍⚖️ Advogado": "Pode usar termos técnicos, foque em interpretação jurídica, precedentes, aplicação prática",
+            "🏛️ Servidor Público": "Foque na aplicação da norma, procedimentos, competências dos órgãos"
+        }
+        
+        contexto_persona = personas.get(st.session_state.persona_usuario, personas["👨‍👩‍👧‍👦 Cidadão"])
+        
         contexto = f"""
         DOCUMENTO JURÍDICO CARREGADO: {st.session_state.nome_documento}
         
         TEXTO DA LEI/NORMA:
         {st.session_state.texto_lei[:15000]}
         
+        PERFIL DO USUÁRIO: {st.session_state.persona_usuario}
+        INSTRUÇÕES ESPECÍFICAS: {contexto_persona}
+        
         INSTRUÇÕES PARA O AGENTE:
-        Você é o LexFácil, um assistente jurídico especializado em simplificar textos normativos para o público leigo.
+        Você é o LexFácil, um assistente jurídico especializado em simplificar textos normativos.
         Sua missão é ajudar as pessoas a compreenderem leis e regulamentos de forma clara e acessível.
         
         DIRETRIZES:
-        1. Sempre responda em linguagem simples e acessível
+        1. Adapte sua linguagem ao perfil do usuário selecionado
         2. Quando mencionar artigos ou seções, explique seu significado prático
-        3. Use exemplos do dia a dia quando possível
-        4. Se um termo jurídico for necessário, explique-o brevemente
+        3. Use exemplos relevantes ao perfil do usuário
+        4. Se um termo jurídico for necessário, explique conforme o nível do usuário
         5. Seja objetivo mas amigável
         6. Foque sempre no documento carregado pelo usuário
         7. Se não souber algo específico do documento, seja honesto
-        8. Sugira análises automáticas quando relevante
+        8. Sugira funcionalidades úteis (casos práticos, análise de prazos, etc.)
         
         Responda sempre baseado no documento carregado acima.
         """
@@ -166,7 +184,79 @@ def analisar_legibilidade_gemini(texto):
     """
     return call_gemini_api(prompt, "Análise de Legibilidade")
 
-def gerar_resumo_gemini(texto):
+def gerar_casos_praticos(texto):
+    """Gera casos práticos baseados na lei"""
+    prompt = f"""
+    Com base neste texto jurídico, crie 3 casos práticos/exemplos reais de como esta lei se aplica no dia a dia.
+    
+    Para cada caso, forneça:
+    1. **Situação**: Descreva um cenário específico e realista
+    2. **Aplicação da Lei**: Como a lei se aplica neste caso
+    3. **Consequências**: O que acontece na prática
+    4. **Dica Prática**: Uma orientação útil
+    
+    Casos devem ser:
+    - Realistas e específicos
+    - Fáceis de entender
+    - Relevantes para diferentes perfis de pessoas
+    - Escritos em linguagem simples
+    
+    Use formato MARKDOWN com títulos e seções claras.
+    
+    Texto da Lei:
+    ---
+    {texto[:15000]}
+    ---
+    """
+    return call_gemini_api(prompt, "Geração de Casos Práticos")
+
+def extrair_prazos_importantes(texto):
+    """Extrai prazos e datas importantes da lei"""
+    prompt = f"""
+    Analise este texto jurídico e identifique TODOS os prazos, datas e períodos importantes mencionados.
+    
+    Para cada prazo encontrado, forneça:
+    1. **Prazo**: O período específico (dias, meses, anos)
+    2. **Para que serve**: O que deve ser feito neste prazo
+    3. **Quem deve cumprir**: Responsável pela ação
+    4. **Consequência**: O que acontece se não cumprir
+    5. **Artigo/Seção**: Onde está previsto no texto
+    
+    Organize em ordem de importância/urgência.
+    Use formato MARKDOWN com emojis para facilitar visualização.
+    
+    Se não encontrar prazos específicos, informe que a lei não estabelece prazos determinados.
+    
+    Texto da Lei:
+    ---
+    {texto[:15000]}
+    ---
+    """
+    return call_gemini_api(prompt, "Extração de Prazos")
+
+def busca_semantica(texto, consulta):
+    """Realiza busca semântica no texto da lei"""
+    prompt = f"""
+    O usuário quer encontrar informações sobre: "{consulta}"
+    
+    Procure no texto jurídico abaixo todas as informações relacionadas a esta consulta.
+    Considere sinônimos, conceitos relacionados e contexto.
+    
+    Retorne:
+    1. **Trechos Relevantes**: Cite os artigos/parágrafos específicos
+    2. **Explicação Simplificada**: O que significa na prática
+    3. **Palavras-chave Encontradas**: Termos relacionados identificados
+    
+    Se não encontrar nenhuma informação relacionada, informe claramente.
+    
+    Consulta do usuário: {consulta}
+    
+    Texto da Lei:
+    ---
+    {texto[:15000]}
+    ---
+    """
+    return call_gemini_api(prompt, "Busca Semântica")
     prompt = f"""
     Você é um assistente especializado em simplificar textos jurídicos para o público leigo.
     Sua tarefa é gerar um resumo conciso e em linguagem acessível do texto jurídico fornecido.
@@ -194,6 +284,31 @@ st.set_page_config(page_title="LexFácil", layout="wide", initial_sidebar_state=
 with st.sidebar:
     st.title("📘 LexFácil")
     st.markdown("**Seu assistente jurídico inteligente**")
+    
+    # Seletor de Persona
+    st.markdown("### 👤 Seu Perfil")
+    personas = {
+        "👨‍👩‍👧‍👦 Cidadão": "Linguagem simples e exemplos do dia a dia",
+        "👨‍💼 Empresário": "Foco em impactos comerciais e negócios", 
+        "👩‍⚖️ Advogado": "Análise técnica e jurídica detalhada",
+        "🏛️ Servidor Público": "Aplicação prática da norma"
+    }
+    
+    persona_escolhida = st.selectbox(
+        "Como você quer que eu te ajude?",
+        options=list(personas.keys()),
+        index=list(personas.keys()).index(st.session_state.persona_usuario),
+        help="Escolha seu perfil para respostas personalizadas"
+    )
+    
+    if persona_escolhida != st.session_state.persona_usuario:
+        st.session_state.persona_usuario = persona_escolhida
+        st.success(f"✅ Perfil alterado para {persona_escolhida}")
+        # Rerun para aplicar mudanças
+        time.sleep(1)
+        st.rerun()
+    
+    st.info(personas[st.session_state.persona_usuario])
     
     # Upload de arquivo
     st.markdown("### 📄 Carregar Documento")
@@ -240,8 +355,9 @@ Agora posso ajudar você a entender este texto jurídico de forma simples e clar
         
         # Ferramentas rápidas
         if st.session_state.texto_lei:
-            st.markdown("### 🛠️ Ferramentas Rápidas")
+            st.markdown("### 🛠️ Ferramentas Inteligentes")
             
+            # Primeira linha - Análises básicas
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("📊 Análise", use_container_width=True):
@@ -261,7 +377,7 @@ Agora posso ajudar você a entender este texto jurídico de forma simples e clar
                             st.session_state.analise_realizada = True
                             st.rerun()
                     else:
-                        st.info("Análise já realizada - veja no chat!")
+                        st.info("Análise já realizada!")
             
             with col2:
                 if st.button("📄 Resumo", use_container_width=True):
@@ -281,11 +397,65 @@ Agora posso ajudar você a entender este texto jurídico de forma simples e clar
                             st.session_state.resumo_realizado = True
                             st.rerun()
                     else:
-                        st.info("Resumo já realizado - veja no chat!")
+                        st.info("Resumo já realizado!")
+            
+            # Segunda linha - Funcionalidades avançadas
+            col3, col4 = st.columns(2)
+            with col3:
+                if st.button("🎯 Casos Práticos", use_container_width=True):
+                    with st.spinner("Criando exemplos..."):
+                        casos = gerar_casos_praticos(st.session_state.texto_lei)
+                        st.session_state.chat_messages.append({
+                            "role": "user",
+                            "content": "Gere casos práticos de aplicação da lei",
+                            "timestamp": datetime.now()
+                        })
+                        st.session_state.chat_messages.append({
+                            "role": "assistant",
+                            "content": f"## 🎯 Casos Práticos\n\n{casos}",
+                            "timestamp": datetime.now()
+                        })
+                        st.session_state.casos_praticos.append(casos)
+                        st.rerun()
+            
+            with col4:
+                if st.button("⏰ Prazos", use_container_width=True):
+                    with st.spinner("Extraindo prazos..."):
+                        prazos = extrair_prazos_importantes(st.session_state.texto_lei)
+                        st.session_state.chat_messages.append({
+                            "role": "user",
+                            "content": "Quais são os prazos importantes desta lei?",
+                            "timestamp": datetime.now()
+                        })
+                        st.session_state.chat_messages.append({
+                            "role": "assistant",
+                            "content": f"## ⏰ Prazos Importantes\n\n{prazos}",
+                            "timestamp": datetime.now()
+                        })
+                        st.session_state.prazos_extraidos.append(prazos)
+                        st.rerun()
+            
+            # Busca semântica
+            st.markdown("### 🔍 Busca Inteligente")
+            busca_query = st.text_input("Buscar por conceito ou tema:", placeholder="Ex: multas, prazos, obrigações...")
+            if st.button("Buscar", use_container_width=True) and busca_query:
+                with st.spinner("Buscando..."):
+                    resultado_busca = busca_semantica(st.session_state.texto_lei, busca_query)
+                    st.session_state.chat_messages.append({
+                        "role": "user",
+                        "content": f"Buscar por: {busca_query}",
+                        "timestamp": datetime.now()
+                    })
+                    st.session_state.chat_messages.append({
+                        "role": "assistant",
+                        "content": f"## 🔍 Resultados da Busca: '{busca_query}'\n\n{resultado_busca}",
+                        "timestamp": datetime.now()
+                    })
+                    st.rerun()
             
             # Info do documento
             st.markdown("### 📋 Documento Atual")
-            st.info(f"**{st.session_state.nome_documento}**\n\n{len(st.session_state.texto_lei):,} caracteres")
+            st.info(f"**{st.session_state.nome_documento}**\n\n{len(st.session_state.texto_lei):,} caracteres\n\n👤 **Modo:** {st.session_state.persona_usuario}")
     else:
         st.info("Carregue um documento PDF para começar")
 
@@ -343,8 +513,66 @@ else:
 st.markdown("---")
 st.markdown("🤖 **LexFácil** - Transformando juridiquês em linguagem humana com IA")
 
-# Sugestões de perguntas (quando há documento carregado)
+# Sugestões de perguntas personalizadas por persona
 if st.session_state.texto_lei and len(st.session_state.chat_messages) <= 1:
+    st.markdown("### 💡 Perguntas sugeridas para seu perfil:")
+    
+    sugestoes_por_persona = {
+        "👨‍👩‍👧‍👦 Cidadão": [
+            "Como esta lei me afeta no dia a dia?",
+            "Quais são meus direitos e deveres?", 
+            "O que acontece se eu não cumprir?",
+            "Esta lei já está valendo?",
+            "Preciso fazer algo para me adequar?",
+            "Tem alguma multa prevista?"
+        ],
+        "👨‍💼 Empresário": [
+            "Quais os impactos para minha empresa?",
+            "Quanto vai custar me adequar?",
+            "Quais são os prazos de adequação?",
+            "Que documentos preciso providenciar?",
+            "Posso ser multado? Qual valor?",
+            "Como isso afeta meus funcionários?"
+        ],
+        "👩‍⚖️ Advogado": [
+            "Quais são as principais mudanças?",
+            "Como interpretar o artigo X?",
+            "Há conflitos com outras normas?",
+            "Quais as sanções previstas?",
+            "Como é a aplicação prática?",
+            "Existem regulamentações complementares?"
+        ],
+        "🏛️ Servidor Público": [
+            "Como aplicar esta norma?",
+            "Quais são os procedimentos?",
+            "Que competência tem meu órgão?",
+            "Como fiscalizar o cumprimento?",
+            "Que documentos são necessários?",
+            "Como instruir os processos?"
+        ]
+    }
+    
+    sugestoes = sugestoes_por_persona.get(st.session_state.persona_usuario, sugestoes_por_persona["👨‍👩‍👧‍👦 Cidadão"])
+    
+    cols = st.columns(3)
+    for i, sugestao in enumerate(sugestoes):
+        with cols[i % 3]:
+            if st.button(sugestao, key=f"sug_{i}", use_container_width=True):
+                # Simular clique no chat
+                st.session_state.chat_messages.append({
+                    "role": "user",
+                    "content": sugestao,
+                    "timestamp": datetime.now()
+                })
+                
+                with st.spinner("Pensando..."):
+                    resposta = processar_pergunta_chat(sugestao)
+                    st.session_state.chat_messages.append({
+                        "role": "assistant",
+                        "content": resposta,
+                        "timestamp": datetime.now()
+                    })
+                st.rerun()messages) <= 1:
     st.markdown("### 💡 Sugestões de perguntas:")
     
     sugestoes = [
