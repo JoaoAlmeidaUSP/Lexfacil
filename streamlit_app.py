@@ -379,7 +379,6 @@ st.set_page_config(page_title="LexFácil", layout="wide", initial_sidebar_state=
 with st.sidebar:
     st.title("📘 LexFácil")
     st.markdown("**Seu assistente jurídico inteligente**")
-    st.markdown("✅ **Versão Ilimitada** - Processa PDFs de qualquer tamanho")
     
     # Seletor de Persona
     st.markdown("### 👤 Seu Perfil")
@@ -562,8 +561,6 @@ if not st.session_state.texto_lei:
     st.markdown("""
     ### Bem-vindo ao LexFácil! 👋
     
-    **✅ Versão Ilimitada - Processa PDFs de qualquer tamanho!**
-    
     Para começar:
     1. **Carregue um PDF** da lei ou norma na barra lateral
     2. **Converse comigo** sobre o documento de forma natural
@@ -671,4 +668,3 @@ if st.session_state.texto_lei and len(st.session_state.chat_messages) <= 1:
 # Footer
 st.markdown("---")
 st.markdown("🤖 **LexFácil** - Transformando juridiquês em linguagem humana com IA")
-st.markdown("✅ **Versão Ilimitada** - Processa documentos de qualquer tamanho")
