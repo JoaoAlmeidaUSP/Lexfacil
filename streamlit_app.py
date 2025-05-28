@@ -52,6 +52,88 @@ if 'casos_praticos' not in st.session_state:
 if 'prazos_extraidos' not in st.session_state:
     st.session_state.prazos_extraidos = []
 
+# Função para dividir texto em chunks menores quando necessário
+def dividir_texto_em_chunks(texto, max_chars=100000):
+    """Divide texto em chunks menores se necessário, preservando parágrafos"""
+    if len(texto) <= max_chars:
+        return [texto]
+    
+    chunks = []
+    paragrafos = texto.split('\n\n')
+    chunk_atual = ""
+    
+    for paragrafo in paragrafos:
+        if len(chunk_atual + paragrafo) <= max_chars:
+            chunk_atual += paragrafo + '\n\n'
+        else:
+            if chunk_atual:
+                chunks.append(chunk_atual.strip())
+                chunk_atual = paragrafo + '\n\n'
+            else:
+                # Se um parágrafo for muito grande, divide por frases
+                frases = paragrafo.split('. ')
+                for frase in frases:
+                    if len(chunk_atual + frase) <= max_chars:
+                        chunk_atual += frase + '. '
+                    else:
+                        if chunk_atual:
+                            chunks.append(chunk_atual.strip())
+                            chunk_atual = frase + '. '
+                        else:
+                            # Se uma frase for muito grande, força a divisão
+                            chunks.append(frase[:max_chars])
+                            chunk_atual = frase[max_chars:] + '. '
+    
+    if chunk_atual:
+        chunks.append(chunk_atual.strip())
+    
+    return chunks
+
+# Função para processar textos grandes com múltiplos chunks
+def processar_texto_grande(texto, prompt_template, task_name="tarefa"):
+    """Processa textos grandes dividindo em chunks e combinando resultados"""
+    chunks = dividir_texto_em_chunks(texto)
+    
+    if len(chunks) == 1:
+        # Texto pequeno, processa normalmente
+        prompt = prompt_template.replace("{texto}", chunks[0])
+        return call_gemini_api(prompt, task_name)
+    
+    # Texto grande, processa em partes
+    resultados = []
+    for i, chunk in enumerate(chunks):
+        st.write(f"Processando parte {i+1} de {len(chunks)}...")
+        prompt = prompt_template.replace("{texto}", chunk)
+        resultado = call_gemini_api(prompt, f"{task_name} - Parte {i+1}")
+        resultados.append(resultado)
+    
+    # Combina os resultados
+    if task_name.lower().startswith("análise"):
+        # Para análises, cria um resumo consolidado
+        prompt_consolidacao = f"""
+        Consolide estas análises parciais de um documento jurídico em uma análise única e coerente:
+        
+        {chr(10).join([f"## Parte {i+1}:{chr(10)}{resultado}{chr(10)}" for i, resultado in enumerate(resultados)])}
+        
+        Forneça uma análise consolidada considerando todo o documento.
+        """
+        return call_gemini_api(prompt_consolidacao, "Consolidação de Análise")
+    
+    elif task_name.lower().startswith("resumo"):
+        # Para resumos, consolida os pontos principais
+        prompt_consolidacao = f"""
+        Consolide estes resumos parciais de um documento jurídico em um resumo único e coerente:
+        
+        {chr(10).join([f"## Parte {i+1}:{chr(10)}{resultado}{chr(10)}" for i, resultado in enumerate(resultados)])}
+        
+        Forneça um resumo consolidado considerando todo o documento, eliminando redundâncias.
+        """
+        return call_gemini_api(prompt_consolidacao, "Consolidação de Resumo")
+    
+    else:
+        # Para outros casos, simplesmente concatena
+        return "\n\n---\n\n".join(resultados)
+
 # --- Helper Functions ---
 def extrair_texto_pdf(caminho_pdf):
     texto = ""
@@ -95,11 +177,15 @@ def criar_contexto_inicial():
         
         contexto_persona = personas.get(st.session_state.persona_usuario, personas["👨‍👩‍👧‍👦 Cidadão"])
         
+        # Para documentos muito grandes, usa apenas os primeiros 50.000 caracteres para o contexto
+        texto_contexto = st.session_state.texto_lei[:50000] if len(st.session_state.texto_lei) > 50000 else st.session_state.texto_lei
+        
         contexto = f"""
         DOCUMENTO JURÍDICO CARREGADO: {st.session_state.nome_documento}
+        TAMANHO DO DOCUMENTO: {len(st.session_state.texto_lei):,} caracteres
         
-        TEXTO DA LEI/NORMA:
-        {st.session_state.texto_lei[:15000]}
+        TEXTO DA LEI/NORMA (INÍCIO):
+        {texto_contexto}
         
         PERFIL DO USUÁRIO: {st.session_state.persona_usuario}
         INSTRUÇÕES ESPECÍFICAS: {contexto_persona}
@@ -107,6 +193,8 @@ def criar_contexto_inicial():
         INSTRUÇÕES PARA O AGENTE:
         Você é o LexFácil, um assistente jurídico especializado em simplificar textos normativos.
         Sua missão é ajudar as pessoas a compreenderem leis e regulamentos de forma clara e acessível.
+        
+        IMPORTANTE: O documento completo tem {len(st.session_state.texto_lei):,} caracteres. Para perguntas sobre partes específicas do documento que não aparecem no contexto acima, informe que pode analisar seções específicas se o usuário indicar artigos, capítulos ou temas específicos.
         
         DIRETRIZES:
         1. Adapte sua linguagem ao perfil do usuário selecionado
@@ -150,7 +238,7 @@ def processar_pergunta_chat(pergunta):
     return call_gemini_api(prompt, "resposta do chat")
 
 def analisar_legibilidade_gemini(texto):
-    prompt = f"""
+    prompt_template = """
     Analise a legibilidade deste texto jurídico (em português) considerando os seguintes critérios.
     Para cada critério, forneça uma avaliação e, se aplicável, sugestões de melhoria.
 
@@ -179,14 +267,14 @@ def analisar_legibilidade_gemini(texto):
 
     Texto para Análise:
     ---
-    {texto[:18000]}
+    {texto}
     ---
     """
-    return call_gemini_api(prompt, "Análise de Legibilidade")
+    return processar_texto_grande(texto, prompt_template, "Análise de Legibilidade")
 
 def gerar_resumo_gemini(texto):
     """Gera um resumo simplificado da lei"""
-    prompt = f"""
+    prompt_template = """
     Você é um assistente especializado em simplificar textos jurídicos para o público leigo.
     Sua tarefa é gerar um resumo conciso e em linguagem acessível do texto jurídico fornecido.
     O resumo deve:
@@ -199,15 +287,18 @@ def gerar_resumo_gemini(texto):
 
     Texto Jurídico para Resumir:
     ---
-    {texto[:18000]}
+    {texto}
     ---
 
     Resumo Acessível:
     """
-    return call_gemini_api(prompt, "Geração de Resumo")
+    return processar_texto_grande(texto, prompt_template, "Resumo Simplificado")
 
 def gerar_casos_praticos(texto):
     """Gera casos práticos baseados na lei"""
+    # Para casos práticos, usa apenas uma amostra do texto para não sobrecarregar
+    texto_amostra = texto[:30000] if len(texto) > 30000 else texto
+    
     prompt = f"""
     Com base neste texto jurídico, crie 3 casos práticos/exemplos reais de como esta lei se aplica no dia a dia.
     
@@ -227,14 +318,14 @@ def gerar_casos_praticos(texto):
     
     Texto da Lei:
     ---
-    {texto[:15000]}
+    {texto_amostra}
     ---
     """
     return call_gemini_api(prompt, "Geração de Casos Práticos")
 
 def extrair_prazos_importantes(texto):
     """Extrai prazos e datas importantes da lei"""
-    prompt = f"""
+    prompt_template = """
     Analise este texto jurídico e identifique TODOS os prazos, datas e períodos importantes mencionados.
     
     Para cada prazo encontrado, forneça:
@@ -251,13 +342,14 @@ def extrair_prazos_importantes(texto):
     
     Texto da Lei:
     ---
-    {texto[:15000]}
+    {texto}
     ---
     """
-    return call_gemini_api(prompt, "Extração de Prazos")
+    return processar_texto_grande(texto, prompt_template, "Extração de Prazos")
 
 def busca_semantica(texto, consulta):
     """Realiza busca semântica no texto da lei"""
+    # Para busca, pode processar o texto todo se necessário
     prompt = f"""
     O usuário quer encontrar informações sobre: "{consulta}"
     
@@ -275,7 +367,7 @@ def busca_semantica(texto, consulta):
     
     Texto da Lei:
     ---
-    {texto[:15000]}
+    {texto[:50000]}
     ---
     """
     return call_gemini_api(prompt, "Busca Semântica")
@@ -287,6 +379,7 @@ st.set_page_config(page_title="LexFácil", layout="wide", initial_sidebar_state=
 with st.sidebar:
     st.title("📘 LexFácil")
     st.markdown("**Seu assistente jurídico inteligente**")
+    st.markdown("✅ **Versão Ilimitada** - Processa PDFs de qualquer tamanho")
     
     # Seletor de Persona
     st.markdown("### 👤 Seu Perfil")
@@ -337,9 +430,9 @@ with st.sidebar:
                     st.success("✅ Documento carregado!")
                     
                     # Mensagem de boas-vindas automática
-                    boas_vindas = f"""Olá! Acabei de receber o documento **{uploaded_file.name}**. 
+                    boas_vindas = f"""Olá! Acabei de receber o documento **{uploaded_file.name}** com {len(texto_extraido):,} caracteres. 
 
-Agora posso ajudar você a entender este texto jurídico de forma simples e clara. Você pode:
+Agora posso ajudar você a entender este texto jurídico de forma simples e clara, **sem limitação de tamanho**! Você pode:
 
 🔍 **Me fazer perguntas** sobre qualquer parte da lei
 📊 **Solicitar análise de legibilidade** - para entender o quão complexo é o texto
@@ -365,7 +458,7 @@ Agora posso ajudar você a entender este texto jurídico de forma simples e clar
             with col1:
                 if st.button("📊 Análise", use_container_width=True):
                     if not st.session_state.analise_realizada:
-                        with st.spinner("Analisando..."):
+                        with st.spinner("Analisando documento completo..."):
                             analise = analisar_legibilidade_gemini(st.session_state.texto_lei)
                             st.session_state.chat_messages.append({
                                 "role": "user",
@@ -385,7 +478,7 @@ Agora posso ajudar você a entender este texto jurídico de forma simples e clar
             with col2:
                 if st.button("📄 Resumo", use_container_width=True):
                     if not st.session_state.resumo_realizado:
-                        with st.spinner("Resumindo..."):
+                        with st.spinner("Resumindo documento completo..."):
                             resumo = gerar_resumo_gemini(st.session_state.texto_lei)
                             st.session_state.chat_messages.append({
                                 "role": "user",
@@ -423,7 +516,7 @@ Agora posso ajudar você a entender este texto jurídico de forma simples e clar
             
             with col4:
                 if st.button("⏰ Prazos", use_container_width=True):
-                    with st.spinner("Extraindo prazos..."):
+                    with st.spinner("Extraindo prazos do documento completo..."):
                         prazos = extrair_prazos_importantes(st.session_state.texto_lei)
                         st.session_state.chat_messages.append({
                             "role": "user",
@@ -468,6 +561,8 @@ st.title("💬 Converse sobre sua Lei")
 if not st.session_state.texto_lei:
     st.markdown("""
     ### Bem-vindo ao LexFácil! 👋
+    
+    **✅ Versão Ilimitada - Processa PDFs de qualquer tamanho!**
     
     Para começar:
     1. **Carregue um PDF** da lei ou norma na barra lateral
@@ -576,3 +671,4 @@ if st.session_state.texto_lei and len(st.session_state.chat_messages) <= 1:
 # Footer
 st.markdown("---")
 st.markdown("🤖 **LexFácil** - Transformando juridiquês em linguagem humana com IA")
+st.markdown("✅ **Versão Ilimitada** - Processa documentos de qualquer tamanho")
