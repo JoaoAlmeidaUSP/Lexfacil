@@ -7,6 +7,169 @@ from google.generativeai.types import HarmCategory, HarmBlockThreshold
 import time
 from datetime import datetime
 
+# Configuração da página
+st.set_page_config(
+    page_title="LexFácil", 
+    layout="wide", 
+    initial_sidebar_state="collapsed",
+    page_icon="⚖️"
+)
+
+# CSS personalizado para um layout moderno
+st.markdown("""
+<style>
+    /* Configurações gerais */
+    .main {
+        padding-top: 1rem;
+    }
+    
+    /* Header personalizado */
+    .header-container {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 2rem 1rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+        text-align: center;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    
+    .header-title {
+        font-size: 3rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    .header-subtitle {
+        font-size: 1.2rem;
+        opacity: 0.9;
+        margin-bottom: 0;
+    }
+    
+    /* Cards de status */
+    .status-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        border-left: 4px solid #667eea;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        margin-bottom: 1rem;
+    }
+    
+    .document-info {
+        background: linear-gradient(135deg, #f8f9ff 0%, #e8f4f8 100%);
+        padding: 1.5rem;
+        border-radius: 12px;
+        border: 1px solid #e1e8ed;
+        margin-bottom: 1.5rem;
+    }
+    
+    /* Persona selector */
+    .persona-container {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        margin-bottom: 1.5rem;
+    }
+    
+    /* Quick actions */
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .action-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        transition: transform 0.2s, box-shadow 0.2s;
+        cursor: pointer;
+        border: 1px solid #f0f2f6;
+    }
+    
+    .action-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+    }
+    
+    /* Chat container */
+    .chat-container {
+        background: white;
+        border-radius: 15px;
+        padding: 0;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        border: 1px solid #e8eaed;
+        min-height: 500px;
+        margin-bottom: 2rem;
+    }
+    
+    .chat-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 15px 15px 0 0;
+        font-weight: 600;
+    }
+    
+    /* Sugestões */
+    .suggestions-container {
+        background: #f8f9ff;
+        padding: 1.5rem;
+        border-radius: 12px;
+        border: 1px solid #e1e8ed;
+        margin-bottom: 1.5rem;
+    }
+    
+    /* Botões melhorados */
+    .stButton > button {
+        width: 100%;
+        border-radius: 8px;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        font-weight: 500;
+        transition: all 0.2s;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* Upload area */
+    .upload-container {
+        background: white;
+        padding: 2rem;
+        border-radius: 12px;
+        border: 2px dashed #667eea;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    
+    /* Responsivo */
+    @media (max-width: 768px) {
+        .header-title {
+            font-size: 2rem;
+        }
+        .quick-actions {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    /* Ocultar elementos padrão do Streamlit */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stDeployButton {display:none;}
+</style>
+""", unsafe_allow_html=True)
+
 # Configuração da API
 GOOGLE_API_KEY = "AIzaSyAi-EZdS0Jners99DuB_5DkROiK16ghPnM"  # Replace with your actual API key
 
