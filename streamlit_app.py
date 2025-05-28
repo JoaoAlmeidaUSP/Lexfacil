@@ -667,4 +667,4 @@ if st.session_state.texto_lei and len(st.session_state.chat_messages) <= 1:
 
 # Footer
 st.markdown("---")
-st.markdown("🤖 **LexFácil** - Transformando juridiquês em linguagem humana com IA")
+st.markdown("🤖 **LexFácil** - Transformando juridiquês em linguagem acessível com IA")
