@@ -380,7 +380,7 @@ with st.sidebar:
     st.title("📘 LexFácil")
     st.markdown("**Seu assistente jurídico inteligente**")
     
-    # Seletor de Persona
+# Seletor de Persona
     st.markdown("### 👤 Seu Perfil")
     personas = {
         "👨‍👩‍👧‍👦 Cidadão": "Linguagem simples e exemplos do dia a dia",
