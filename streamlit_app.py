@@ -8,7 +8,7 @@ import time
 from datetime import datetime
 
 # Configuração da API
-GOOGLE_API_KEY = "AIzaSyAi-EZdS0Jners99DuB_5DkROiK16ghPnM" 
+GOOGLE_API_KEY = "AIzaSyAi-EZdS0Jners99DuB_5DkROiK16ghPnM"  # Replace with your actual API key
 
 if not GOOGLE_API_KEY or GOOGLE_API_KEY == "YOUR_ACTUAL_API_KEY_HERE": 
     st.error("⚠️ ATENÇÃO: A CHAVE API DO GEMINI NÃO FOI DEFINIDA CORRETAMENTE NO CÓDIGO!")
@@ -184,6 +184,28 @@ def analisar_legibilidade_gemini(texto):
     """
     return call_gemini_api(prompt, "Análise de Legibilidade")
 
+def gerar_resumo_gemini(texto):
+    """Gera um resumo simplificado da lei"""
+    prompt = f"""
+    Você é um assistente especializado em simplificar textos jurídicos para o público leigo.
+    Sua tarefa é gerar um resumo conciso e em linguagem acessível do texto jurídico fornecido.
+    O resumo deve:
+    1.  Identificar e explicar os pontos principais do texto de forma clara.
+    2.  Mencionar artigos, parágrafos ou seções relevantes, explicando seu significado prático.
+    3.  Descrever os efeitos práticos ou as consequências do que está estabelecido no texto.
+    4.  Evitar jargões jurídicos sempre que possível. Se um termo técnico for essencial, explique-o brevemente.
+    5.  Ser estruturado de forma lógica e fácil de seguir.
+    6.  Utilizar formato MARKDOWN para melhor legibilidade (títulos, bullet points, negrito).
+
+    Texto Jurídico para Resumir:
+    ---
+    {texto[:18000]}
+    ---
+
+    Resumo Acessível:
+    """
+    return call_gemini_api(prompt, "Geração de Resumo")
+
 def gerar_casos_praticos(texto):
     """Gera casos práticos baseados na lei"""
     prompt = f"""
@@ -257,25 +279,6 @@ def busca_semantica(texto, consulta):
     ---
     """
     return call_gemini_api(prompt, "Busca Semântica")
-    prompt = f"""
-    Você é um assistente especializado em simplificar textos jurídicos para o público leigo.
-    Sua tarefa é gerar um resumo conciso e em linguagem acessível do texto jurídico fornecido.
-    O resumo deve:
-    1.  Identificar e explicar os pontos principais do texto de forma clara.
-    2.  Mencionar artigos, parágrafos ou seções relevantes, explicando seu significado prático.
-    3.  Descrever os efeitos práticos ou as consequências do que está estabelecido no texto.
-    4.  Evitar jargões jurídicos sempre que possível. Se um termo técnico for essencial, explique-o brevemente.
-    5.  Ser estruturado de forma lógica e fácil de seguir.
-    6.  Utilizar formato MARKDOWN para melhor legibilidade (títulos, bullet points, negrito).
-
-    Texto Jurídico para Resumir:
-    ---
-    {texto[:18000]}
-    ---
-
-    Resumo Acessível:
-    """
-    return call_gemini_api(prompt, "Geração de Resumo")
 
 # --- Interface Streamlit ---
 st.set_page_config(page_title="LexFácil", layout="wide", initial_sidebar_state="expanded")
@@ -509,10 +512,6 @@ else:
                     "timestamp": datetime.now()
                 })
 
-# Footer
-st.markdown("---")
-st.markdown("🤖 **LexFácil** - Transformando juridiquês em linguagem humana com IA")
-
 # Sugestões de perguntas personalizadas por persona
 if st.session_state.texto_lei and len(st.session_state.chat_messages) <= 1:
     st.markdown("### 💡 Perguntas sugeridas para seu perfil:")
@@ -572,34 +571,8 @@ if st.session_state.texto_lei and len(st.session_state.chat_messages) <= 1:
                         "content": resposta,
                         "timestamp": datetime.now()
                     })
-                st.rerun()messages) <= 1:
-    st.markdown("### 💡 Sugestões de perguntas:")
-    
-    sugestoes = [
-        "Quais são os principais pontos desta lei?",
-        "Como esta lei me afeta no dia a dia?",
-        "Quais são as penalidades previstas?",
-        "A partir de quando esta lei entra em vigor?",
-        "Quem deve cumprir estas regras?",
-        "Existe alguma exceção importante?"
-    ]
-    
-    cols = st.columns(3)
-    for i, sugestao in enumerate(sugestoes):
-        with cols[i % 3]:
-            if st.button(sugestao, key=f"sug_{i}", use_container_width=True):
-                # Simular clique no chat
-                st.session_state.chat_messages.append({
-                    "role": "user",
-                    "content": sugestao,
-                    "timestamp": datetime.now()
-                })
-                
-                with st.spinner("Pensando..."):
-                    resposta = processar_pergunta_chat(sugestao)
-                    st.session_state.chat_messages.append({
-                        "role": "assistant",
-                        "content": resposta,
-                        "timestamp": datetime.now()
-                    })
                 st.rerun()
+
+# Footer
+st.markdown("---")
+st.markdown("🤖 **LexFácil** - Transformando juridiquês em linguagem humana com IA")
