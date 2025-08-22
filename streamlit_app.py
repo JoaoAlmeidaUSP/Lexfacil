@@ -10,7 +10,7 @@ from datetime import datetime
 # --- CONFIGURAÇÃO DA API (LÓGICA ANTIGA PARA TESTE) ---
 # ATENÇÃO: Substitua pela sua chave real para testar.
 # Lembre-se de mudar para o método st.secrets assim que validar o funcionamento.
-GOOGLE_API_KEY = "SUA_CHAVE_API_AQUI" 
+GOOGLE_API_KEY = "AIzaSyC8POlPwAb5S95teCfWHSeAiEiejOTz7R0" 
 
 if not GOOGLE_API_KEY or GOOGLE_API_KEY == "SUA_CHAVE_API_AQUI":
     st.error("⚠️ ATENÇÃO: A CHAVE API DO GEMINI NÃO FOI DEFINIDA CORRETAMENTE!")
