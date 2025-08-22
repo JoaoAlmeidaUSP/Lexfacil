@@ -8,7 +8,7 @@ import time
 from datetime import datetime
 
 # Configuração da API
-GOOGLE_API_KEY = "AIzaSyAi-EZdS0Jners99DuB_5DkROiK16ghPnM"  # Replace with your actual API key
+GOOGLE_API_KEY = "AIzaSyDc3sUZpKUcfMKeUougSQQ07VYZCa7XRFE" 
 
 if not GOOGLE_API_KEY or GOOGLE_API_KEY == "YOUR_ACTUAL_API_KEY_HERE": 
     st.error("⚠️ ATENÇÃO: A CHAVE API DO GEMINI NÃO FOI DEFINIDA CORRETAMENTE NO CÓDIGO!")
