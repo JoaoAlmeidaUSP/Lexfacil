@@ -12,7 +12,7 @@ from datetime import datetime
 # Lembre-se de mudar para o método st.secrets assim que validar o funcionamento.
 GOOGLE_API_KEY = "AIzaSyC8POlPwAb5S95teCfWHSeAiEiejOTz7R0" 
 
-if not GOOGLE_API_KEY or GOOGLE_API_KEY == "AIzaSyC8POlPwAb5S95teCfWHSeAiEiejOTz7R0":
+if not GOOGLE_API_KEY or GOOGLE_API_KEY == "SUA_CHAVE_API_AQUI":
     st.error("⚠️ ATENÇÃO: A CHAVE API DO GEMINI NÃO FOI DEFINIDA CORRETAMENTE!")
     st.error("Por favor, substitua 'SUA_CHAVE_API_AQUI' pela sua chave API real na variável GOOGLE_API_KEY no código-fonte para poder testar.")
     st.warning("Lembre-se: Após o teste, é altamente recomendável usar o método de 'secrets' do Streamlit para proteger sua chave.")
